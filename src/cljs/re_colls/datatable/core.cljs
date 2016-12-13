@@ -101,6 +101,8 @@
 (defn page-selector [db-id pagination]
   (let [{:keys [total-pages cur-page]} pagination]
     [:div.page-selector
+     {:style {:float         "right"
+              :margin-bottom "1em"}}
      (let [prev-enabled? (not= cur-page 0)]
        [:span
         (merge
@@ -112,7 +114,6 @@
            :style    {:cursor "pointer"}}
           (when-not prev-enabled?
             {:disabled "disabled"}))
-
         (str \u25C4 " PREVIOUS ")])
 
 
@@ -158,14 +159,15 @@
             (when (get-in state [:pagination :enabled?])
               [page-selector db-id (:pagination state)])
 
-            [:table
+            [:table {:class (get-in options [:css :table])}
              [:thead
               [:tr
                (doall
-                 (for [{:keys [key label sorting]} columns-def]
+                 (for [{:keys [key label sorting css]} columns-def]
                    ^{:key (str key)}
                    [:th
                     {:style    {:cursor "pointer"}
+                     :class    (:column css)
                      :on-click #(when (:enabled? sorting)
                                  (re-frame/dispatch [::set-sort-key db-id key]))}
                     label]))]]

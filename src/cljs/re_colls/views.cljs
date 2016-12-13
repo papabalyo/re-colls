@@ -1,29 +1,35 @@
 (ns re-colls.views
-  (:require [re-frame.core :as re-frame]
-            [re-colls.datatable.core :as datatable]
+  (:require [re-colls.datatable.core :as datatable]
             [re-colls.subs :as subs]))
 
 
 
 (defn main-panel []
-  [datatable/datatable
-   :songs
-   [::subs/songs-list]
-   [{:key     [:index]
-     :sorting {:enabled? true}
-     :label   "#"}
-    {:key   [:name]
-     :label "Name"}
-    {:key       [:duration]
-     :label     "Duration"
-     :sorting   {:enabled? true}
-     :render-fn (fn [val]
-                  [:span
-                   (let [m (quot val 60)
-                         s (mod val 60)]
-                     (if (zero? m)
-                       s
-                       (str m ":" (when (< s 10) 0) s)))])}]
+  [:div.ui.container
 
-   {:pagination {:enabled? true
-                 :per-page 5}}])
+
+   [datatable/datatable
+    :songs
+    [::subs/songs-list]
+    [{:key     [:index]
+      :sorting {:enabled? true}
+      :css     {:column "two wide"}
+      :label   "#"}
+     {:key   [:name]
+      :css   {:column "ten wide"}
+      :label "Name"}
+     {:key       [:duration]
+      :label     "Duration"
+      :sorting   {:enabled? true}
+      :css       {:column "four wide"}
+      :render-fn (fn [val]
+                   [:span
+                    (let [m (quot val 60)
+                          s (mod val 60)]
+                      (if (zero? m)
+                        s
+                        (str m ":" (when (< s 10) 0) s)))])}]
+
+    {:pagination {:enabled? true
+                  :per-page 5}
+     :css        {:table "ui table celled"}}]])
