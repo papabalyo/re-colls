@@ -29,10 +29,10 @@
         (assoc-in (options-db-path db-id)
                   options)
         (assoc-in (state-db-path db-id)
-                  (merge
-                    {:pagination {:per-page 10
-                                  :cur-page 0}}
-                    (select-keys options [:pagination]))))))
+                  (merge-with merge
+                              {:pagination {:per-page 10
+                                            :cur-page 0}}
+                              (select-keys options [:pagination]))))))
 
 
 (re-frame/reg-event-db
@@ -47,6 +47,13 @@
         (-> db
             (assoc-in (sort-key-db-path db-id) sort-key)
             (assoc-in (sort-comp-db-path db-id) cur-sort-comp))))))
+
+
+(re-frame/reg-event-db
+  ::change-state-value
+  [trim-v]
+  (fn [db [db-id state-path new-val]]
+    (assoc-in db (vec (concat (state-db-path db-id) state-path)) new-val)))
 
 
 ; --- Subs ---
@@ -81,11 +88,31 @@
       {:items (->> items
                    (sort-data)
                    (paginate-data))
-       :state state})))
+       :state (-> state
+                  (assoc-in [:pagination :total-pages]
+                            (Math/ceil (/ (count items) (get-in state [:pagination :per-page])))))})))
+
 
 
 
 ; --- Views ---
+
+(defn page-selector [db-id pagination]
+  (let [{:keys [total-pages cur-page]} pagination]
+    [:select
+     {:value     cur-page
+      :on-change #(re-frame/dispatch [::change-state-value
+                                      db-id
+                                      [:pagination :cur-page]
+                                      (js/parseInt (-> % .-target .-value))])}
+     (doall
+       (for [page-index (range total-pages)]
+         ^{:key page-index}
+         [:option
+          {:value page-index}
+          (str "Page " (inc page-index) " of " total-pages)]))]))
+
+
 
 (defn datatable [db-id data-sub columns-def & [options]]
   (let [view-data (re-frame/subscribe [::data db-id data-sub])]
@@ -97,27 +124,32 @@
        :component-function
        (fn [db-id data-sub columns-def & [options]]
          (let [{:keys [items state]} @view-data]
-           [:table
-            [:thead
-             [:tr
-              (doall
-                (for [{:keys [key label sorting]} columns-def]
-                  ^{:key key}
-                  [:th
-                   {:style    {:cursor "pointer"}
-                    :on-click #(when (:enabled? sorting)
-                                (re-frame/dispatch [::set-sort-key db-id key]))}
-                   label]))]]
+           (js/console.log (str (:pagination state)))
+           [:div.re-colls-datatable
+            (when (get-in state [:pagination :enabled?])
+              [page-selector db-id (:pagination state)])
 
-            [:tbody
-             (doall
-               (for [[i data-entry] (map-indexed vector items)]
-                 ^{:key i}
-                 [:tr
-                  (doall
-                    (for [{:keys [key render-fn]} columns-def]
-                      ^{:key key}
-                      [:td
-                       (if render-fn
-                         [render-fn (get data-entry key)]
-                         (get data-entry key))]))]))]]))})))
+            [:table
+             [:thead
+              [:tr
+               (doall
+                 (for [{:keys [key label sorting]} columns-def]
+                   ^{:key key}
+                   [:th
+                    {:style    {:cursor "pointer"}
+                     :on-click #(when (:enabled? sorting)
+                                 (re-frame/dispatch [::set-sort-key db-id key]))}
+                    label]))]]
+
+             [:tbody
+              (doall
+                (for [[i data-entry] (map-indexed vector items)]
+                  ^{:key i}
+                  [:tr
+                   (doall
+                     (for [{:keys [key render-fn]} columns-def]
+                       ^{:key key}
+                       [:td
+                        (if render-fn
+                          [render-fn (get data-entry key)]
+                          (get data-entry key))]))]))]]]))})))
