@@ -7,6 +7,10 @@
 (def root-db-path [:re-colls :datatable])
 
 
+(defn as-is [val]
+  val)
+
+
 
 (re-frame/reg-sub-raw
   ::data
@@ -20,4 +24,23 @@
 (defn datatable [db-id data-sub columns-def & [options]]
   (let [view-data (re-frame/subscribe [::data db-id data-sub])]
     (fn [db-id data-sub columns-def & [options]]
-      [:div (str @view-data)])))
+      [:table
+       [:thead
+        [:tr
+         (doall
+           (for [{:keys [key label]} columns-def]
+             ^{:key key}
+             [:th label]))]]
+
+       [:tbody
+        (doall
+          (for [[i data-entry] (map-indexed vector @view-data)]
+            ^{:key i}
+            [:tr
+             (doall
+               (for [{:keys [key render-fn]} columns-def]
+                 ^{:key key}
+                 [:td
+                  (if render-fn
+                    [render-fn (get data-entry key)]
+                    (get data-entry key))]))]))]])))

@@ -9,4 +9,16 @@
   [datatable/datatable
    :songs
    [::subs/songs-list]
-   {}])
+   [{:key   :index
+     :label "#"}
+    {:key   :name
+     :label "Name"}
+    {:key       :duration
+     :label     "Duration"
+     :render-fn (fn [val]
+                  [:span
+                   (let [m (quot val 60)
+                         s (mod val 60)]
+                     (if (zero? m)
+                       s
+                       (str m ":" (when (< s 10) 0) s)))])}]])
