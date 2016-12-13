@@ -26,4 +26,4 @@
                        (str m ":" (when (< s 10) 0) s)))])}]
 
    {:pagination {:enabled? true
-                 :per-page 10}}])
+                 :per-page 5}}])

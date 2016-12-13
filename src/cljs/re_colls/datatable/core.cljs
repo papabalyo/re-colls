@@ -99,18 +99,47 @@
 
 (defn page-selector [db-id pagination]
   (let [{:keys [total-pages cur-page]} pagination]
-    [:select
-     {:value     cur-page
-      :on-change #(re-frame/dispatch [::change-state-value
-                                      db-id
-                                      [:pagination :cur-page]
-                                      (js/parseInt (-> % .-target .-value))])}
-     (doall
-       (for [page-index (range total-pages)]
-         ^{:key page-index}
-         [:option
-          {:value page-index}
-          (str "Page " (inc page-index) " of " total-pages)]))]))
+    [:div.page-selector
+     (let [prev-enabled? (not= cur-page 0)]
+       [:span
+        (merge
+          {:on-click #(when prev-enabled?
+                       (re-frame/dispatch [::change-state-value
+                                           db-id
+                                           [:pagination :cur-page]
+                                           (dec cur-page)]))
+           :style    {:cursor "pointer"}}
+          (when-not prev-enabled?
+            {:disabled "disabled"}))
+
+        (str \u25C4 " PREVIOUS ")])
+
+
+     [:select
+      {:value     cur-page
+       :on-change #(re-frame/dispatch [::change-state-value
+                                       db-id
+                                       [:pagination :cur-page]
+                                       (js/parseInt (-> % .-target .-value))])}
+      (doall
+        (for [page-index (range total-pages)]
+          ^{:key page-index}
+          [:option
+           {:value page-index}
+           (str "Page " (inc page-index) " of " total-pages)]))]
+
+     (let [next-enabled? (not= cur-page (dec total-pages))]
+       [:span
+        (merge
+          {:on-click #(when next-enabled?
+                       (re-frame/dispatch [::change-state-value
+                                           db-id
+                                           [:pagination :cur-page]
+                                           (inc cur-page)]))
+           :style    {:cursor "pointer"}}
+          (when-not next-enabled?
+            {:disabled "disabled"}))
+        (str " NEXT " \u25BA)])]))
 
 
 
