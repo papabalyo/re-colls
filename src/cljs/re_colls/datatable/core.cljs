@@ -75,8 +75,9 @@
     (let [sort-data (fn [coll]
                       (let [{:keys [sort-key sort-comp]} (:sort state)]
                         (if sort-key
-                          (sort-by sort-key sort-comp coll)
+                          (sort-by #(get-in % sort-key) sort-comp coll)
                           coll)))
+
           paginate-data (fn [coll]
                           (let [{:keys [cur-page per-page] :as pagination} (:pagination state)]
                             (if (:enabled? pagination)
@@ -153,7 +154,6 @@
        :component-function
        (fn [db-id data-sub columns-def & [options]]
          (let [{:keys [items state]} @view-data]
-           (js/console.log (str (:pagination state)))
            [:div.re-colls-datatable
             (when (get-in state [:pagination :enabled?])
               [page-selector db-id (:pagination state)])
@@ -163,7 +163,7 @@
               [:tr
                (doall
                  (for [{:keys [key label sorting]} columns-def]
-                   ^{:key key}
+                   ^{:key (str key)}
                    [:th
                     {:style    {:cursor "pointer"}
                      :on-click #(when (:enabled? sorting)
@@ -177,8 +177,8 @@
                   [:tr
                    (doall
                      (for [{:keys [key render-fn]} columns-def]
-                       ^{:key key}
+                       ^{:key (str key)}
                        [:td
                         (if render-fn
-                          [render-fn (get data-entry key)]
-                          (get data-entry key))]))]))]]]))})))
+                          [render-fn (get-in data-entry key)]
+                          (get-in data-entry key))]))]))]]]))})))
