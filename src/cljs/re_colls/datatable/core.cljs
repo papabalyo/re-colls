@@ -24,8 +24,15 @@
   [trim-v]
   (fn [db [db-id columns-def options]]
     (-> db
-        (assoc-in (columns-def-db-path db-id) columns-def)
-        (assoc-in (options-db-path db-id) options))))
+        (assoc-in (columns-def-db-path db-id)
+                  columns-def)
+        (assoc-in (options-db-path db-id)
+                  options)
+        (assoc-in (state-db-path db-id)
+                  (merge
+                    {:pagination {:per-page 10
+                                  :cur-page 0}}
+                    (select-keys options [:pagination]))))))
 
 
 (re-frame/reg-event-db
@@ -58,10 +65,22 @@
      (re-frame/subscribe [::state db-id])])
 
   (fn [[items state]]
-    (let [{:keys [sort-key sort-comp]} (:sort state)]
-      {:items (if sort-key
-                (sort-by sort-key sort-comp items)
-                items)
+    (let [sort-data (fn [coll]
+                      (let [{:keys [sort-key sort-comp]} (:sort state)]
+                        (if sort-key
+                          (sort-by sort-key sort-comp coll)
+                          coll)))
+          paginate-data (fn [coll]
+                          (let [{:keys [cur-page per-page] :as pagination} (:pagination state)]
+                            (if (:enabled? pagination)
+                              (->> coll
+                                   (drop (* cur-page per-page))
+                                   (take per-page))
+                              coll)))]
+
+      {:items (->> items
+                   (sort-data)
+                   (paginate-data))
        :state state})))
 
 
@@ -87,7 +106,7 @@
                   [:th
                    {:style    {:cursor "pointer"}
                     :on-click #(when (:enabled? sorting)
-                                 (re-frame/dispatch [::set-sort-key db-id key]))}
+                                (re-frame/dispatch [::set-sort-key db-id key]))}
                    label]))]]
 
             [:tbody
