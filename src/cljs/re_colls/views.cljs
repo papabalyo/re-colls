@@ -9,12 +9,14 @@
   [datatable/datatable
    :songs
    [::subs/songs-list]
-   [{:key   :index
-     :label "#"}
+   [{:key     :index
+     :sorting {:enabled? true}
+     :label   "#"}
     {:key   :name
      :label "Name"}
     {:key       :duration
      :label     "Duration"
+     :sorting   {:enabled? true}
      :render-fn (fn [val]
                   [:span
                    (let [m (quot val 60)
