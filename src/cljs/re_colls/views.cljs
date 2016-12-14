@@ -1,5 +1,5 @@
 (ns re-colls.views
-  (:require [re-colls.datatable.core :as dt]
+  (:require [re-frame-datatable.core :as dt]
             [re-colls.subs :as subs]))
 
 

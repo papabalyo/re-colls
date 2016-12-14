@@ -1,7 +1,7 @@
-(ns re-colls.datatable.core
+(ns re-frame-datatable.core
   (:require-macros [reagent.ratom :refer [reaction]])
   (:require [reagent.core :as reagent]
-            [re-frame.core :as re-frame :refer [debug trim-v]]
+            [re-frame.core :as re-frame :refer [trim-v]]
             [cljs.spec :as s]))
 
 
