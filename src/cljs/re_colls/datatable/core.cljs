@@ -1,8 +1,30 @@
 (ns re-colls.datatable.core
   (:require-macros [reagent.ratom :refer [reaction]])
   (:require [reagent.core :as reagent]
-            [re-frame.core :as re-frame :refer [debug trim-v]]))
+            [re-frame.core :as re-frame :refer [debug trim-v]]
+            [cljs.spec :as s]))
 
+
+; --- Model (spec) ---
+
+(s/def ::db-id keyword?)
+
+
+(s/def ::column-key
+  (s/coll-of keyword? :kind vector :min-count 1))
+
+
+(s/def ::column-def
+  (s/keys :req [::column-key]))
+
+
+(s/def ::columns-def
+  (s/coll-of ::column-def :min-count 1))
+
+
+
+
+; --- Re-frame database paths ---
 
 (def root-db-path [:re-colls :datatable])
 (defn db-path-for [db-path db-id]
@@ -107,10 +129,10 @@
        [:span
         (merge
           {:on-click #(when prev-enabled?
-                       (re-frame/dispatch [::change-state-value
-                                           db-id
-                                           [:pagination :cur-page]
-                                           (dec cur-page)]))
+                        (re-frame/dispatch [::change-state-value
+                                            db-id
+                                            [:pagination :cur-page]
+                                            (dec cur-page)]))
            :style    {:cursor "pointer"}}
           (when-not prev-enabled?
             {:disabled "disabled"}))
@@ -134,18 +156,23 @@
        [:span
         (merge
           {:on-click #(when next-enabled?
-                       (re-frame/dispatch [::change-state-value
-                                           db-id
-                                           [:pagination :cur-page]
-                                           (inc cur-page)]))
+                        (re-frame/dispatch [::change-state-value
+                                            db-id
+                                            [:pagination :cur-page]
+                                            (inc cur-page)]))
            :style    {:cursor "pointer"}}
           (when-not next-enabled?
             {:disabled "disabled"}))
         (str " NEXT " \u25BA)])]))
 
 
-
 (defn datatable [db-id data-sub columns-def & [options]]
+  {:pre [(or (s/valid? ::db-id db-id)
+             (js/console.error (s/explain-str ::db-id db-id)))
+
+         (or (s/valid? ::columns-def columns-def)
+             (js/console.error (s/explain-str ::columns-def columns-def)))]}
+
   (let [view-data (re-frame/subscribe [::data db-id data-sub])]
     (reagent/create-class
       {:component-will-mount
@@ -163,13 +190,13 @@
              [:thead
               [:tr
                (doall
-                 (for [{:keys [key label sorting css]} columns-def]
-                   ^{:key (str key)}
+                 (for [{:keys [::column-key label sorting css]} columns-def]
+                   ^{:key (str column-key)}
                    [:th
                     {:style    {:cursor "pointer"}
                      :class    (:column css)
                      :on-click #(when (:enabled? sorting)
-                                 (re-frame/dispatch [::set-sort-key db-id key]))}
+                                  (re-frame/dispatch [::set-sort-key db-id column-key]))}
                     label]))]]
 
              [:tbody
@@ -178,9 +205,9 @@
                   ^{:key i}
                   [:tr
                    (doall
-                     (for [{:keys [key render-fn]} columns-def]
-                       ^{:key (str key)}
+                     (for [{:keys [::column-key render-fn]} columns-def]
+                       ^{:key (str column-key)}
                        [:td
                         (if render-fn
-                          [render-fn (get-in data-entry key)]
-                          (get-in data-entry key))]))]))]]]))})))
+                          [render-fn (get-in data-entry column-key)]
+                          (get-in data-entry column-key))]))]))]]]))})))
