@@ -67,7 +67,7 @@
 ; --- Events ---
 
 (re-frame/reg-event-db
-  ::init
+  ::mount
   [trim-v]
   (fn [db [db-id columns-def options]]
     (-> db
@@ -79,6 +79,13 @@
                   {::pagination (merge {::per-page per-page
                                         ::cur-page 0}
                                        (select-keys (::pagination options) [::per-page ::enabled?]))}))))
+
+
+(re-frame/reg-event-db
+  ::unmount
+  [trim-v]
+  (fn [db [db-id]]
+    (update-in db root-db-path dissoc db-id)))
 
 
 (re-frame/reg-event-db
@@ -204,7 +211,11 @@
   (let [view-data (re-frame/subscribe [::data db-id data-sub])]
     (reagent/create-class
       {:component-will-mount
-       #(re-frame/dispatch [::init db-id columns-def options])
+       #(re-frame/dispatch [::mount db-id columns-def options])
+
+
+       :component-will-unmount
+       #(re-frame/dispatch [::unmount db-id])
 
 
        :component-function
@@ -217,10 +228,6 @@
             [:table
              (when (::table-classes options)
                {:class (clojure.string/join \space (::table-classes options))})
-             #_(merge
-                 {}
-                 (when (::table-classes options)
-                   {:class (clojure.string/join \space (::table-classes options))}))
 
              [:thead
               [:tr
