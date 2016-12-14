@@ -13,9 +13,21 @@
 (s/def ::column-key
   (s/coll-of keyword? :kind vector :min-count 1))
 
+(s/def ::column-label string?)
+(s/def ::enabled? boolean?)
+
+(s/def ::sorting
+  (s/keys :req-un [::enabled?]))
+
+(s/def ::css-classes
+  (s/coll-of string?))
+
+(s/def ::th-classes ::css-classes)
+(s/def ::table-classes ::css-classes)
 
 (s/def ::column-def
-  (s/keys :req [::column-key]))
+  (s/keys :req [::column-key ::column-label]
+          :opt [::sorting ::th-classes]))
 
 
 (s/def ::columns-def
@@ -190,14 +202,17 @@
              [:thead
               [:tr
                (doall
-                 (for [{:keys [::column-key label sorting css]} columns-def]
+                 (for [{:keys [::column-key ::column-label ::sorting ::th-classes]} columns-def]
                    ^{:key (str column-key)}
                    [:th
-                    {:style    {:cursor "pointer"}
-                     :class    (:column css)
-                     :on-click #(when (:enabled? sorting)
-                                  (re-frame/dispatch [::set-sort-key db-id column-key]))}
-                    label]))]]
+                    (merge
+                      (when th-classes
+                        {:class (clojure.string/join \space th-classes)
+                         :style {:cursor "pointer"}})
+                      {:on-click #(when (:enabled? sorting)
+                                    (re-frame/dispatch [::set-sort-key db-id column-key]))})
+
+                    column-label]))]]
 
              [:tbody
               (doall
