@@ -8,32 +8,40 @@
 ; --- Model (spec) ---
 
 (s/def ::db-id keyword?)
-
-
-(s/def ::column-key
-  (s/coll-of keyword? :kind vector :min-count 1))
-
-(s/def ::column-label string?)
 (s/def ::enabled? boolean?)
+(s/def ::css-classes (s/coll-of string?))
 
-(s/def ::sorting
-  (s/keys :req-un [::enabled?]))
 
-(s/def ::css-classes
-  (s/coll-of string?))
+; columns-def
 
+(s/def ::column-key (s/coll-of keyword? :kind vector :min-count 1))
+(s/def ::column-label string?)
+(s/def ::sorting (s/keys :req [::enabled?]))
 (s/def ::th-classes ::css-classes)
-(s/def ::table-classes ::css-classes)
+
 
 (s/def ::column-def
   (s/keys :req [::column-key ::column-label]
           :opt [::sorting ::th-classes]))
 
-
-(s/def ::columns-def
-  (s/coll-of ::column-def :min-count 1))
+(s/def ::columns-def (s/coll-of ::column-def :min-count 1))
 
 
+; options
+
+(s/def ::table-classes ::css-classes)
+
+(s/def ::per-page (s/and integer? pos?))
+(s/def ::cur-page (s/and integer? (complement neg?)))
+(s/def ::total-pages (s/and integer? pos?))
+(s/def ::pagination
+  (s/keys :req [::enabled?]
+          :opt [::per-page ::cur-page ::total-pages]))
+
+
+(s/def ::options
+  (s/nilable
+    (s/keys :opt [::pagination ::table-classes])))
 
 
 ; --- Re-frame database paths ---
@@ -50,6 +58,11 @@
 (def sort-comp-db-path (partial db-path-for [:state :sort :sort-comp]))
 
 
+; --- Defaults ---
+
+(def per-page 10)
+
+
 
 ; --- Events ---
 
@@ -63,10 +76,9 @@
         (assoc-in (options-db-path db-id)
                   options)
         (assoc-in (state-db-path db-id)
-                  (merge-with merge
-                              {:pagination {:per-page 10
-                                            :cur-page 0}}
-                              (select-keys options [:pagination]))))))
+                  {::pagination (merge {::per-page per-page
+                                        ::cur-page 0}
+                                       (select-keys (::pagination options) [::per-page ::enabled?]))}))))
 
 
 (re-frame/reg-event-db
@@ -113,8 +125,8 @@
                           coll)))
 
           paginate-data (fn [coll]
-                          (let [{:keys [cur-page per-page] :as pagination} (:pagination state)]
-                            (if (:enabled? pagination)
+                          (let [{:keys [::cur-page ::per-page ::enabled?] :as pagination} (::pagination state)]
+                            (if enabled?
                               (->> coll
                                    (drop (* cur-page per-page))
                                    (take per-page))
@@ -124,8 +136,8 @@
                    (sort-data)
                    (paginate-data))
        :state (-> state
-                  (assoc-in [:pagination :total-pages]
-                            (Math/ceil (/ (count items) (get-in state [:pagination :per-page])))))})))
+                  (assoc-in [::pagination ::total-pages]
+                            (Math/ceil (/ (count items) (get-in state [::pagination ::per-page])))))})))
 
 
 
@@ -133,7 +145,7 @@
 ; --- Views ---
 
 (defn page-selector [db-id pagination]
-  (let [{:keys [total-pages cur-page]} pagination]
+  (let [{:keys [::total-pages ::cur-page]} pagination]
     [:div.page-selector
      {:style {:float         "right"
               :margin-bottom "1em"}}
@@ -143,7 +155,7 @@
           {:on-click #(when prev-enabled?
                         (re-frame/dispatch [::change-state-value
                                             db-id
-                                            [:pagination :cur-page]
+                                            [::pagination ::cur-page]
                                             (dec cur-page)]))
            :style    {:cursor "pointer"}}
           (when-not prev-enabled?
@@ -155,7 +167,7 @@
       {:value     cur-page
        :on-change #(re-frame/dispatch [::change-state-value
                                        db-id
-                                       [:pagination :cur-page]
+                                       [::pagination ::cur-page]
                                        (js/parseInt (-> % .-target .-value))])}
       (doall
         (for [page-index (range total-pages)]
@@ -170,7 +182,7 @@
           {:on-click #(when next-enabled?
                         (re-frame/dispatch [::change-state-value
                                             db-id
-                                            [:pagination :cur-page]
+                                            [::pagination ::cur-page]
                                             (inc cur-page)]))
            :style    {:cursor "pointer"}}
           (when-not next-enabled?
@@ -183,7 +195,11 @@
              (js/console.error (s/explain-str ::db-id db-id)))
 
          (or (s/valid? ::columns-def columns-def)
-             (js/console.error (s/explain-str ::columns-def columns-def)))]}
+             (js/console.error (s/explain-str ::columns-def columns-def)))
+
+         (or (s/valid? ::options options)
+             (js/console.error (s/explain-str ::options options)))]}
+
 
   (let [view-data (re-frame/subscribe [::data db-id data-sub])]
     (reagent/create-class
@@ -195,10 +211,17 @@
        (fn [db-id data-sub columns-def & [options]]
          (let [{:keys [items state]} @view-data]
            [:div.re-colls-datatable
-            (when (get-in state [:pagination :enabled?])
-              [page-selector db-id (:pagination state)])
+            (when (get-in state [::pagination ::enabled?])
+              [page-selector db-id (::pagination state)])
 
-            [:table {:class (get-in options [:css :table])}
+            [:table
+             (when (::table-classes options)
+               {:class (clojure.string/join \space (::table-classes options))})
+             #_(merge
+                 {}
+                 (when (::table-classes options)
+                   {:class (clojure.string/join \space (::table-classes options))}))
+
              [:thead
               [:tr
                (doall
@@ -209,9 +232,8 @@
                       (when th-classes
                         {:class (clojure.string/join \space th-classes)
                          :style {:cursor "pointer"}})
-                      {:on-click #(when (:enabled? sorting)
+                      {:on-click #(when (::enabled? sorting)
                                     (re-frame/dispatch [::set-sort-key db-id column-key]))})
-
                     column-label]))]]
 
              [:tbody
